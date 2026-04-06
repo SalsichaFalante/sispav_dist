@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — SISPAV{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        /* ── Layout full-width: mapa em cima, painéis embaixo ── */
+        .dash-filter {
+            display: grid;
+            grid-template-columns: 1fr 180px auto;
+            gap: 12px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+
+        /* Mapa ocupa largura total */
+        #map {
+            width: 100%;
+            height: 480px;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        /* Grade de 4 painéis abaixo do mapa */
+        .dash-panels {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        /* Painel de KPIs — ocupa 1 coluna */
+        .panel-kpis {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .mini-kpi {
+            background: var(--color-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+        }
+
+        .mini-kpi-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--color-ink-muted);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .mini-kpi-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: var(--color-ink);
+            font-family: var(--font-mono);
+            line-height: 1;
+        }
+
+        /* Painel donut M&R — ocupa 1 coluna */
+        .panel-mer {
+            background: var(--color-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-ink-muted);
+        }
+
+        .panel-body { padding: 12px 16px; }
+
+        /* Linha histórica — ocupa 1 coluna */
+        .panel-evolucao {
+            background: var(--color-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        /* Barra defeitos — ocupa 1 coluna */
+        .panel-defeitos {
+            background: var(--color-white);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        /* Legenda do mapa */
+        .map-legend {
+            background: rgba(255,255,255,0.96);
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            font-size: 12px;
+            line-height: 1;
+            min-width: 130px;
+        }
+
+        .map-legend strong {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--color-ink-muted);
+            margin-bottom: 8px;
+        }
+
+        .map-legend .leg-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: var(--color-ink);
+        }
+
+        .map-legend .leg-line {
+            width: 24px;
+            height: 4px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* Popup do mapa */
+        .map-popup { font-family: var(--font-sans); min-width: 190px; }
+        .map-popup .pop-title { font-size: 13px; font-weight: 700; color: var(--color-ink); margin-bottom: 6px; }
+        .map-popup .pop-badge { display: inline-block; font-size: 10px; padding: 2px 7px;
+            border-radius: 100px; background: var(--color-surface); border: 1px solid var(--color-border);
+            color: var(--color-ink-muted); margin-bottom: 8px; }
+        .map-popup .pop-row { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+        .map-popup .pop-row .lbl { color: var(--color-ink-muted); }
+        .map-popup .pop-row .val { font-weight: 700; }
+        .map-popup .pop-def { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border); font-size: 11px; }
+        .map-popup .pop-def-title { font-weight: 600; color: var(--color-ink-muted); text-transform: uppercase;
+            font-size: 10px; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .map-popup .pop-def-row { display: flex; justify-content: space-between; padding: 1px 0; }
+        .map-popup .pop-def-pts { font-family: var(--font-mono); font-weight: 600; color: var(--color-danger); }
+
+        /* Estado vazio */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 32px 16px; text-align: center;
+            color: var(--color-ink-faint); gap: 8px;
+        }
+
+        .empty-state i { font-size: 2rem; opacity: .35; }
+        .empty-state p { font-size: var(--text-sm); max-width: 180px; line-height: 1.5; }
+
+        @media (max-width: 1100px) {
+            .dash-panels { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 700px) {
+            .dash-filter { grid-template-columns: 1fr; }
+            .dash-panels { grid-template-columns: 1fr; }
+            #map { height: 300px; }
+        }
+    </style>
+{% endblock %}
+
+{% block topbar_actions %}
+<span style="font-size: var(--text-sm); color: var(--color-ink-muted);">
+    Visualização do estado da malha viária
+</span>
+{% endblock %}
+
+{% block content %}
+
+{# ── Filtros ── #}
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-body" style="padding: 14px 20px;">
+        <div class="dash-filter">
+            <div class="form-group">
+                <label class="form-label">Município</label>
+                <select id="filtro-municipio" class="form-control">
+                    <option value="" disabled selected>Selecione um município...</option>
+                    {% for mun in municipios %}
+                        <option value="{{ mun.id }}">{{ mun.nome }} — {{ mun.uf.sigla }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ano de referência</label>
+                <select id="filtro-ano" class="form-control">
+                    {% for a in anos %}
+                        <option value="{{ a }}">{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" id="btn-atualizar" onclick="carregarDados()">
+                <i class="fas fa-magnifying-glass"></i>
+                Atualizar
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ── Mapa — largura total ── #}
+<div class="card" style="overflow: hidden; margin-bottom: 16px;">
+    <div class="card-header">
+        <span class="card-title">
+            <i class="fas fa-map" style="color: var(--color-accent); margin-right: 7px;"></i>
+            Mapa de Condição — ICP
+        </span>
+        <span id="mapa-status" style="font-size: var(--text-xs); color: var(--color-ink-faint);">
+            Selecione um município e clique em Atualizar
+        </span>
+    </div>
+    <div id="map"></div>
+</div>
+
+{# ── Painéis de dados ── #}
+<div class="dash-panels">
+
+    {# KPIs #}
+    <div class="panel-kpis">
+        <div class="mini-kpi">
+            <span class="mini-kpi-label">Total de vias</span>
+            <div class="mini-kpi-value" id="kpi-total">—</div>
+        </div>
+        <div class="mini-kpi">
+            <span class="mini-kpi-label">Avaliadas</span>
+            <div class="mini-kpi-value" id="kpi-avaliadas">—</div>
+        </div>
+        <div class="mini-kpi">
+            <span class="mini-kpi-label">ICP Médio</span>
+            <div class="mini-kpi-value" id="kpi-icp">—</div>
+        </div>
+        <div class="mini-kpi">
+            <span class="mini-kpi-label">Conceito</span>
+            <div class="mini-kpi-value" id="kpi-estado" style="font-size: 1rem; margin-top: 2px;">—</div>
+        </div>
+    </div>
+
+    {# Donut M&R #}
+    <div class="panel-mer">
+        <div class="panel-header">Distribuição de Intervenções (M&R)</div>
+        <div class="panel-body" style="display: flex; align-items: center; justify-content: center;">
+            <div id="mer-empty" class="empty-state">
+                <i class="fas fa-chart-pie"></i>
+                <p>Carregue um município para ver os dados</p>
+            </div>
+            <div id="mer-chart-wrap" style="height: 200px; width: 100%; display: none;">
+                <canvas id="chartMER"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {# Evolução histórica #}
+    <div class="panel-evolucao">
+        <div class="panel-header">Evolução histórica do ICP</div>
+        <div class="panel-body" style="height: 200px;">
+            <canvas id="chartEvolucao"></canvas>
+        </div>
+    </div>
+
+    {# Defeitos mais frequentes #}
+    <div class="panel-defeitos">
+        <div class="panel-header">Defeitos mais frequentes</div>
+        <div class="panel-body" style="height: 200px;">
+            <canvas id="chartDefeitos"></canvas>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    /* ── Paleta alinhada ao sispav.css ── */
+    const COR = {
+        otimo:   '#16a34a',
+        bom:     '#65a30d',
+        regular: '#d97706',
+        ruim:    '#ea580c',
+        pessimo: '#dc2626',
+        neutro:  '#a0aec0',
+        action:  '#2563eb',
+    };
+
+    let map, geoJsonLayer;
+    let chartEvolucao, chartMER, chartDefeitos;
+    let chartsOk = false;
+
+    /* ── Mapa com tiles limpos Carto Positron ── */
+    function initMap() {
+        map = L.map('map', { zoomControl: true }).setView([-15.79, -47.88], 10);
+
+        L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            {
+                attribution: '© <a href="https://carto.com/">CARTO</a> © <a href="https://openstreetmap.org">OSM</a>',
+                subdomains: 'abcd',
+                maxZoom: 20,
+            }
+        ).addTo(map);
+
+        /* Legenda ICP com as 5 faixas corretas */
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'map-legend');
+            const faixas = [
+                { label: 'Ótimo  (ICP ≥ 90)',         cor: COR.otimo },
+                { label: 'Bom    (80 ≤ ICP < 90)',     cor: COR.bom },
+                { label: 'Regular (70 ≤ ICP < 80)',    cor: COR.regular },
+                { label: 'Ruim   (60 ≤ ICP < 70)',     cor: COR.ruim },
+                { label: 'Muito Ruim (ICP < 60)',      cor: COR.pessimo },
+                { label: 'Sem avaliação',              cor: COR.neutro },
+            ];
+            div.innerHTML = '<strong>Legenda ICP</strong>';
+            faixas.forEach(f => {
+                div.innerHTML += `
+                    <div class="leg-item">
+                        <span class="leg-line" style="background:${f.cor}"></span>
+                        ${f.label}
+                    </div>`;
+            });
+            return div;
+        };
+        legend.addTo(map);
+    }
+
+    /* ── Cor por ICP (5 faixas conforme tabela de condição) ── */
+    function corICP(v) {
+        if (v === null || v === undefined) return COR.neutro;
+        if (v >= 90) return COR.otimo;
+        if (v >= 80) return COR.bom;
+        if (v >= 70) return COR.regular;
+        if (v >= 60) return COR.ruim;
+        return COR.pessimo;
+    }
+
+    function conceitoICP(v) {
+        if (!v) return { texto: '—', cor: COR.neutro };
+        if (v >= 90) return { texto: 'MUITO BOM', cor: COR.otimo };
+        if (v >= 80) return { texto: 'BOM',       cor: COR.bom };
+        if (v >= 70) return { texto: 'REGULAR',   cor: COR.regular };
+        if (v >= 60) return { texto: 'RUIM',      cor: COR.ruim };
+        return           { texto: 'MUITO RUIM', cor: COR.pessimo };
+    }
+
+    function initCharts() {
+        if (chartsOk) return;
+        const base = { responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } } };
+
+        chartMER = new Chart(document.getElementById('chartMER'), {
+            type: 'doughnut',
+            data: { labels: [], datasets: [] },
+            options: { ...base, cutout: '60%',
+                plugins: { legend: { display: true, position: 'right',
+                    labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } } } }
+        });
+
+        chartEvolucao = new Chart(document.getElementById('chartEvolucao'), {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: { ...base,
+                scales: {
+                    y: { min: 0, max: 100,
+                         ticks: { font: { size: 10 } },
+                         grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        chartDefeitos = new Chart(document.getElementById('chartDefeitos'), {
+            type: 'bar',
+            data: { labels: [], datasets: [] },
+            options: { ...base, indexAxis: 'y',
+                scales: {
+                    x: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        chartsOk = true;
+    }
+
+    function carregarDados() {
+        const munId = document.getElementById('filtro-municipio').value;
+        const ano   = document.getElementById('filtro-ano').value;
+        if (!munId) { alert('Selecione um município antes de atualizar.'); return; }
+
+        const btn = document.getElementById('btn-atualizar');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+        document.getElementById('mapa-status').textContent = 'Carregando dados...';
+
+        initCharts();
+
+        fetch(`/api/dashboard-data?municipio_id=${munId}&ano=${ano}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                atualizarMapa(data.mapa);
+                atualizarKPIs(data.kpis);
+                atualizarGraficos(data.graficos);
+                document.getElementById('mapa-status').textContent =
+                    `${data.mapa.features.length} segmentos carregados`;
+            })
+            .catch(e => {
+                document.getElementById('mapa-status').textContent = 'Erro ao carregar.';
+                alert('Erro: ' + e.message);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Atualizar';
+            });
+    }
+
+    function atualizarMapa(geojsonData) {
+        if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+
+        geoJsonLayer = L.geoJSON(geojsonData, {
+            style: f => ({ color: corICP(f.properties.icp), weight: 5, opacity: 0.9 }),
+            onEachFeature: function (f, layer) {
+                const p = f.properties;
+                const icp = p.icp !== null ? parseFloat(p.icp).toFixed(1) : 'N/A';
+                const cor = corICP(p.icp);
+                let defHtml = '';
+                if (p.defeitos && p.defeitos.length > 0) {
+                    defHtml = `<div class="pop-def">
+                        <p class="pop-def-title">Defeitos (pontos dedutíveis)</p>
+                        ${p.defeitos.map(d => `
+                            <div class="pop-def-row">
+                                <span>${d.nome}</span>
+                                <span class="pop-def-pts">−${d.pontos.toFixed(1)}</span>
+                            </div>`).join('')}
+                    </div>`;
+                }
+                layer.bindPopup(`
+                    <div class="map-popup">
+                        <p class="pop-title">${p.nome || 'Via sem nome'}</p>
+                        <span class="pop-badge">${p.bairro || '—'}</span>
+                        <div class="pop-row">
+                            <span class="lbl">ICP</span>
+                            <span class="val" style="color:${cor}">${icp}</span>
+                        </div>
+                        <div class="pop-row">
+                            <span class="lbl">M&R indicado</span>
+                            <span class="val">${p.mer || 'N/A'}</span>
+                        </div>
+                        <div class="pop-row">
+                            <span class="lbl">Data avaliação</span>
+                            <span class="val">${p.data || '—'}</span>
+                        </div>
+                        ${defHtml}
+                    </div>`);
+            }
+        }).addTo(map);
+
+        if (geojsonData.features.length > 0)
+            map.fitBounds(geoJsonLayer.getBounds(), { padding: [20, 20] });
+    }
+
+    function atualizarKPIs(kpis) {
+        document.getElementById('kpi-total').textContent     = kpis.total_vias;
+        document.getElementById('kpi-avaliadas').textContent = kpis.avaliadas;
+        document.getElementById('kpi-icp').textContent       = kpis.icp_medio || '—';
+
+        const c = conceitoICP(kpis.icp_medio);
+        const el = document.getElementById('kpi-estado');
+        el.textContent = c.texto;
+        el.style.color = c.cor;
+    }
+
+    function atualizarGraficos(dados) {
+        const merLabels = Object.keys(dados.mer);
+        const merCores  = merLabels.map((_,i) =>
+            [COR.pessimo, COR.ruim, COR.regular, COR.bom, COR.action][i % 5]);
+
+        chartMER.data = { labels: merLabels,
+            datasets: [{ data: Object.values(dados.mer), backgroundColor: merCores, borderWidth: 0 }] };
+        chartMER.update();
+
+        document.getElementById('mer-empty').style.display      = 'none';
+        document.getElementById('mer-chart-wrap').style.display = 'block';
+
+        chartEvolucao.data = { labels: dados.evolucao.labels,
+            datasets: [{ label: 'ICP Médio', data: dados.evolucao.data,
+                borderColor: COR.action, backgroundColor: 'rgba(37,99,235,0.08)',
+                pointBackgroundColor: COR.action, pointRadius: 4,
+                tension: 0.35, fill: true, borderWidth: 2 }] };
+        chartEvolucao.update();
+
+        chartDefeitos.data = { labels: dados.defeitos.labels,
+            datasets: [{ label: 'Pontos', data: dados.defeitos.data,
+                backgroundColor: COR.ruim, borderRadius: 3 }] };
+        chartDefeitos.update();
+    }
+
+    document.addEventListener('DOMContentLoaded', initMap);
+</script>
+{% endblock %}

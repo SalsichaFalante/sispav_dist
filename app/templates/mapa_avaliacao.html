@@ -1,0 +1,604 @@
+{% extends "base.html" %}
+
+{% block title %}Mapa e Avaliação — SISPAV{% endblock %}
+{% block page_title %}Mapa e Avaliação{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        /* ── Layout vertical: mapa em cima, formulário embaixo ── */
+        #map {
+            width: 100%;
+            height: 420px;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        /* Barra de via selecionada */
+        .via-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 16px;
+            background: var(--color-action-dim);
+            border: 1px solid #bfdbfe;
+            border-radius: var(--radius-sm);
+            margin-bottom: 16px;
+            font-size: var(--text-sm);
+        }
+
+        .via-bar.visible { display: flex; }
+
+        .via-bar .via-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: var(--color-action);
+        }
+
+        /* Autocomplete */
+        .autocomplete-wrap { position: relative; }
+
+        .autocomplete-list {
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0; right: 0;
+            background: var(--color-white);
+            border: 1.5px solid var(--color-action);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-elevated);
+            z-index: 200;
+            max-height: 180px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .autocomplete-list .ac-item {
+            padding: 9px 12px;
+            font-size: var(--text-sm);
+            cursor: pointer;
+            color: var(--color-ink);
+        }
+
+        .autocomplete-list .ac-item:hover {
+            background: var(--color-action-dim);
+            color: var(--color-action);
+        }
+
+        .section-disabled { opacity: 0.45; pointer-events: none; }
+
+        /* Tabela de defeitos */
+        .defeitos-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--text-sm);
+        }
+
+        .defeitos-table thead th {
+            background: var(--color-surface);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--color-ink-muted);
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--color-border);
+            text-align: center;
+        }
+
+        .defeitos-table thead th:first-child { text-align: left; }
+
+        .defeitos-table tbody tr:nth-child(even) { background: var(--color-surface); }
+
+        .defeitos-table tbody td {
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--color-border);
+            color: var(--color-ink);
+        }
+
+        .defeitos-table tbody td:first-child {
+            font-weight: 500;
+            font-size: var(--text-xs);
+        }
+
+        .defeitos-table input[type="number"] {
+            width: 66px;
+            text-align: center;
+            padding: 5px 6px;
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+            font-family: var(--font-mono);
+            color: var(--color-ink);
+            background: var(--color-white);
+        }
+
+        .defeitos-table input[type="number"]:focus {
+            outline: none;
+            border-color: var(--color-action);
+            box-shadow: 0 0 0 3px var(--color-action-dim);
+        }
+
+        /* Formulário em grade de 2 colunas */
+        .form-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .form-2col .span-full { grid-column: 1 / -1; }
+
+        /* Dica auxiliar dentro do formulário */
+        .field-hint {
+            font-size: 11px;
+            color: var(--color-ink-muted);
+            margin-top: 3px;
+            display: flex;
+            align-items: flex-start;
+            gap: 5px;
+        }
+
+        .field-hint i { margin-top: 1px; flex-shrink: 0; color: var(--color-accent); }
+    </style>
+{% endblock %}
+
+{% block topbar_actions %}
+    <span class="badge badge-warning">
+        <i class="fas fa-shield-halved"></i>
+        Acesso Administrador
+    </span>
+{% endblock %}
+
+{% block content %}
+
+{# ── Barra de via selecionada ── #}
+<div class="via-bar" id="via-bar">
+    <div class="via-info">
+        <i class="fas fa-road"></i>
+        <span id="via-nome-texto">Via selecionada</span>
+    </div>
+    <a href="#" id="btn-limpar-selecao" class="btn btn-outline btn-sm">
+        <i class="fas fa-xmark"></i>
+        Trocar / Nova via
+    </a>
+</div>
+
+{# ── Mapa — largura total ── #}
+<div class="card" style="overflow: hidden; margin-bottom: 20px;">
+    <div class="card-header">
+        <span class="card-title">
+            <i class="fas fa-map-marked-alt" style="color: var(--color-accent); margin-right: 7px;"></i>
+            Selecione uma via existente no mapa ou preencha os dados abaixo para cadastrar uma nova
+        </span>
+    </div>
+    <div id="map"></div>
+</div>
+
+{# ── Formulário — largura total ── #}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">
+            <i class="fas fa-clipboard-check" style="color: var(--color-accent); margin-right: 7px;"></i>
+            Nova Avaliação
+        </span>
+    </div>
+    <div class="card-body" style="padding: 24px;">
+
+        <form id="evaluationForm" method="POST" action="{{ url_for('main.avaliar') }}">
+            <input type="hidden" id="segmento_id" name="segmento_id">
+
+            {# ── Seção 1: Dados do Segmento ── #}
+            <fieldset class="form-section" id="fieldset-segmento">
+                <legend>1 — Dados do Segmento</legend>
+
+                <div class="form-2col" style="margin-bottom: 14px;">
+
+                    <div class="form-group span-full">
+                        <label class="form-label" for="nome_via">
+                            Nome da Via <span class="required">*</span>
+                        </label>
+                        <input class="form-control" type="text" id="nome_via"
+                               name="nome_via" placeholder="Ex: Rua das Acácias">
+                        <p class="field-hint">
+                            <i class="fas fa-circle-info"></i>
+                            Use o nome oficial da via conforme consta no cadastro municipal.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="de">Trecho De</label>
+                        <input class="form-control" type="text" id="de"
+                               name="de" placeholder="Ex: Rua 8">
+                        <p class="field-hint"><i class="fas fa-circle-info"></i>
+                            Rua ou cruzamento onde o segmento inicia.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="ate">Trecho Até</label>
+                        <input class="form-control" type="text" id="ate"
+                               name="ate" placeholder="Ex: Rua 9">
+                        <p class="field-hint"><i class="fas fa-circle-info"></i>
+                            Rua ou cruzamento onde o segmento termina.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="uf_select">UF</label>
+                        <select class="form-control" id="uf_select">
+                            <option value="">Selecione...</option>
+                            {% for uf in ufs %}
+                                <option value="{{ uf.id }}">{{ uf.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="municipio_select">Município</label>
+                        <select class="form-control" id="municipio_select"
+                                name="municipio_id" disabled>
+                            <option value="">Aguardando UF...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group span-full autocomplete-wrap">
+                        <label class="form-label" for="bairro_input">Bairro</label>
+                        <input class="form-control" type="text" id="bairro_input"
+                               name="bairro_nome" autocomplete="off"
+                               placeholder="Digite para buscar..." disabled>
+                        <div class="autocomplete-list" id="bairro_suggestions"></div>
+                    </div>
+
+                </div>
+
+                {# Coordenadas #}
+                <div style="padding: 14px; background: var(--color-surface);
+                            border-radius: var(--radius-sm); border: 1px solid var(--color-border);
+                            margin-bottom: 4px;">
+                    <p style="font-size: 11px; font-weight: 700; text-transform: uppercase;
+                              letter-spacing: 0.06em; color: var(--color-ink-muted); margin-bottom: 10px;">
+                        <i class="fas fa-location-crosshairs" style="color: var(--color-accent); margin-right: 5px;"></i>
+                        Coordenadas Geográficas
+                    </p>
+                    <p class="field-hint" style="margin-bottom: 12px;">
+                        <i class="fas fa-circle-info"></i>
+                        Clique no mapa para marcar o ponto de início (primeiro clique) e fim (segundo clique), ou preencha manualmente com valores decimais (ex: −15.86234).
+                    </p>
+                    <div class="form-2col">
+                        <div class="form-group">
+                            <label class="form-label" for="lat_inicio">Latitude Início</label>
+                            <input class="form-control coord-input" type="number"
+                                   step="any" id="lat_inicio" name="lat_inicio" placeholder="−15.00000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lon_inicio">Longitude Início</label>
+                            <input class="form-control coord-input" type="number"
+                                   step="any" id="lon_inicio" name="lon_inicio" placeholder="−48.00000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lat_fim">Latitude Fim</label>
+                            <input class="form-control coord-input" type="number"
+                                   step="any" id="lat_fim" name="lat_fim" placeholder="−15.00000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lon_fim">Longitude Fim</label>
+                            <input class="form-control coord-input" type="number"
+                                   step="any" id="lon_fim" name="lon_fim" placeholder="−48.00000">
+                        </div>
+                    </div>
+                </div>
+
+            </fieldset>
+
+            {# ── Seção 2: Avaliador ── #}
+            <fieldset class="form-section">
+                <legend>2 — Avaliador Responsável</legend>
+                <div class="form-2col">
+                    <div class="form-group span-full">
+                        <label class="form-label" for="avaliador_opcao_select">Responsável pela avaliação</label>
+                        <select class="form-control" id="avaliador_opcao_select" name="avaliador_opcao">
+                            <option value="usuario_logado" selected>
+                                Meu usuário ({{ session.user_name }})
+                            </option>
+                            <option value="existente">Selecionar avaliador cadastrado</option>
+                        </select>
+                        <p class="field-hint"><i class="fas fa-circle-info"></i>
+                            Selecione o técnico que realizou a avaliação em campo.</p>
+                    </div>
+                    <div id="campo_avaliador_existente" class="form-group span-full" style="display:none;">
+                        <label class="form-label" for="avaliador_id_existente">Avaliador</label>
+                        <select class="form-control" name="avaliador_id_existente" id="avaliador_id_existente">
+                            <option value="">Selecione...</option>
+                            {% for av in avaliadores %}
+                                <option value="{{ av.id }}">{{ av.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </fieldset>
+
+            {# ── Seção 3: Dados Gerais ── #}
+            <fieldset class="form-section">
+                <legend>3 — Dados Gerais da Avaliação</legend>
+                <div class="form-2col">
+                    <div class="form-group">
+                        <label class="form-label" for="data_avaliacao">
+                            Data da Avaliação <span class="required">*</span>
+                        </label>
+                        <input class="form-control" type="date" id="data_avaliacao"
+                               name="data_avaliacao" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="vdm">Volume Diário Médio (VDM)</label>
+                        <input class="form-control" type="text" id="vdm"
+                               name="vdm" placeholder="Ex: 1200">
+                        <p class="field-hint"><i class="fas fa-circle-info"></i>
+                            Número médio de veículos/dia. Usado no cálculo do Fator de Tráfego (TF) para o Índice de Prioridade.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="classe_funcional">Classe Funcional</label>
+                        <select class="form-control" id="classe_funcional" name="classe_funcional">
+                            <option value="Arterial">Arterial — vias de trânsito rápido (FC = 1,2)</option>
+                            <option value="Coletora">Coletora — vias de distribuição (FC = 1,1)</option>
+                            <option value="Local">Local — acesso a lotes (FC = 1,0)</option>
+                        </select>
+                        <p class="field-hint"><i class="fas fa-circle-info"></i>
+                            A classe funcional define o Fator de Classificação (FC) no cálculo do IP.</p>
+                    </div>
+                </div>
+            </fieldset>
+
+            {# ── Seção 4: Planilha de Defeitos ── #}
+            <fieldset class="form-section">
+                <legend>4 — Planilha de Defeitos</legend>
+
+                <div style="padding: 10px 14px; background: var(--color-warning-bg);
+                            border-left: 3px solid var(--color-warning);
+                            border-radius: var(--radius-sm); margin-bottom: 14px;
+                            font-size: 12px; color: #78350f;">
+                    <b>Como preencher:</b> para cada tipo de defeito identificado na via, informe o percentual da área afetada (%) para cada nível de severidade (Baixa, Média, Alta) e o total de pontos dedutíveis (PD), conforme o método ICP (IA/SHRP 1981). Deixe 0 nos defeitos não observados.
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="defeitos-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; width: 36%;">Tipo de Defeito</th>
+                                <th>Baixa (%)</th>
+                                <th>Média (%)</th>
+                                <th>Alta (%)</th>
+                                <th>PD (pts)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tipo in defeito_tipos %}
+                            <tr>
+                                <td>{{ tipo.nome }}</td>
+                                <td style="text-align:center;">
+                                    <input type="number" name="defeito_{{ tipo.id }}_baixo"
+                                           min="0" max="100" step="1" value="0">
+                                </td>
+                                <td style="text-align:center;">
+                                    <input type="number" name="defeito_{{ tipo.id }}_medio"
+                                           min="0" max="100" step="1" value="0">
+                                </td>
+                                <td style="text-align:center;">
+                                    <input type="number" name="defeito_{{ tipo.id }}_alto"
+                                           min="0" max="100" step="1" value="0">
+                                </td>
+                                <td style="text-align:center;">
+                                    <input type="number" name="defeito_{{ tipo.id }}_pd"
+                                           min="0" max="100" step="1" value="0">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </fieldset>
+
+            {# ── Ações ── #}
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px;">
+                <button type="reset" class="btn btn-outline">
+                    <i class="fas fa-rotate-left"></i>
+                    Limpar
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-floppy-disk"></i>
+                    Salvar Avaliação
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        /* ── Mapa com Carto Positron (limpo, sem ruído visual) ── */
+        const map = L.map('map').setView([-16.06, -47.98], 13);
+
+        L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            {
+                attribution: '© <a href="https://carto.com/">CARTO</a> © <a href="https://openstreetmap.org">OSM</a>',
+                subdomains: 'abcd',
+                maxZoom: 20,
+            }
+        ).addTo(map);
+
+        let previewLayer     = L.layerGroup().addTo(map);
+        let selectedSegLayer = null;
+        let clickState       = 0; /* 0=aguardando início, 1=aguardando fim */
+
+        /* ── Segmentos existentes ── */
+        const segmentosLayer = L.geoJSON(null, {
+            style: () => ({ color: '#2563eb', weight: 5, opacity: 0.75 }),
+            onEachFeature: function (f, layer) {
+                layer.on('click', () => selecionarVia(layer, f.properties));
+                layer.bindTooltip(f.properties.nome || 'Via sem nome');
+            }
+        }).addTo(map);
+
+        async function carregarSegmentos() {
+            try {
+                const res  = await fetch('/api/segmentos');
+                const data = await res.json();
+                segmentosLayer.clearLayers().addData(data);
+            } catch(e) { console.error('Erro ao carregar segmentos:', e); }
+        }
+
+        /* ── Clique no mapa para capturar coordenadas ── */
+        map.on('click', function (e) {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+
+            if (clickState === 0) {
+                document.getElementById('lat_inicio').value = lat;
+                document.getElementById('lon_inicio').value = lng;
+                clickState = 1;
+            } else {
+                document.getElementById('lat_fim').value = lat;
+                document.getElementById('lon_fim').value = lng;
+                clickState = 0;
+                desenharPreview();
+            }
+        });
+
+        /* ── Seleção de via existente ── */
+        function selecionarVia(layer, props) {
+            document.getElementById('segmento_id').value = props.id;
+            document.getElementById('via-nome-texto').textContent =
+                `${props.nome || 'Via'} (ID: ${props.id})`;
+            document.getElementById('via-bar').classList.add('visible');
+
+            habilitarNovaVia(false);
+
+            if (selectedSegLayer) segmentosLayer.resetStyle(selectedSegLayer);
+            layer.setStyle({ color: '#dc2626', weight: 7 });
+            selectedSegLayer = layer;
+        }
+
+        function habilitarNovaVia(habilitar) {
+            const fs = document.getElementById('fieldset-segmento');
+            fs.classList.toggle('section-disabled', !habilitar);
+            fs.querySelectorAll('input, select').forEach(el => {
+                if (habilitar) { el.disabled = false; }
+                else { el.disabled = true; el.removeAttribute('required'); }
+            });
+            if (habilitar) {
+                document.getElementById('segmento_id').value = '';
+                document.getElementById('via-bar').classList.remove('visible');
+                if (selectedSegLayer) {
+                    segmentosLayer.resetStyle(selectedSegLayer);
+                    selectedSegLayer = null;
+                }
+            }
+        }
+
+        document.getElementById('btn-limpar-selecao').addEventListener('click', e => {
+            e.preventDefault();
+            habilitarNovaVia(true);
+        });
+
+        /* ── Avaliador ── */
+        document.getElementById('avaliador_opcao_select').addEventListener('change', function () {
+            document.getElementById('campo_avaliador_existente').style.display =
+                this.value === 'existente' ? 'block' : 'none';
+        });
+
+        /* ── Reset ── */
+        document.getElementById('evaluationForm').addEventListener('reset', () => {
+            setTimeout(() => {
+                habilitarNovaVia(true);
+                document.getElementById('avaliador_opcao_select').value = 'usuario_logado';
+                document.getElementById('campo_avaliador_existente').style.display = 'none';
+                previewLayer.clearLayers();
+                clickState = 0;
+            }, 0);
+        });
+
+        /* ── Cascade UF → Município ── */
+        const ufSelect        = document.getElementById('uf_select');
+        const municipioSelect = document.getElementById('municipio_select');
+        const bairroInput     = document.getElementById('bairro_input');
+        const bairroSuggest   = document.getElementById('bairro_suggestions');
+
+        ufSelect.addEventListener('change', async () => {
+            municipioSelect.innerHTML = '<option value="">Carregando...</option>';
+            municipioSelect.disabled = true;
+            bairroInput.value = '';
+            bairroInput.disabled = true;
+            const ufId = ufSelect.value;
+            if (!ufId) return;
+            try {
+                const res  = await fetch(`/api/municipios/${ufId}`);
+                const data = await res.json();
+                municipioSelect.innerHTML = '<option value="">Selecione um município</option>';
+                data.forEach(m => municipioSelect.innerHTML += `<option value="${m.id}">${m.nome}</option>`);
+                municipioSelect.disabled = false;
+            } catch { municipioSelect.innerHTML = '<option value="">Erro ao carregar</option>'; }
+        });
+
+        municipioSelect.addEventListener('change', () => {
+            bairroInput.value = '';
+            bairroSuggest.innerHTML = '';
+            bairroInput.disabled = !municipioSelect.value;
+        });
+
+        /* ── Autocomplete bairro ── */
+        bairroInput.addEventListener('input', async () => {
+            const query = bairroInput.value.trim();
+            const munId = municipioSelect.value;
+            if (query.length < 2 || !munId) { bairroSuggest.style.display = 'none'; return; }
+            try {
+                const res  = await fetch(`/api/bairros/search?municipio_id=${munId}&query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                bairroSuggest.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(b => {
+                        const item = document.createElement('div');
+                        item.className = 'ac-item';
+                        item.textContent = b.nome;
+                        item.addEventListener('click', () => {
+                            bairroInput.value = b.nome;
+                            bairroSuggest.style.display = 'none';
+                        });
+                        bairroSuggest.appendChild(item);
+                    });
+                    bairroSuggest.style.display = 'block';
+                } else { bairroSuggest.style.display = 'none'; }
+            } catch { console.error('Erro autocomplete'); }
+        });
+
+        document.addEventListener('click', e => {
+            if (!bairroInput.contains(e.target)) bairroSuggest.style.display = 'none';
+        });
+
+        /* ── Preview de segmento desenhado manualmente ── */
+        function desenharPreview() {
+            previewLayer.clearLayers();
+            const lat1 = parseFloat(document.getElementById('lat_inicio').value);
+            const lon1 = parseFloat(document.getElementById('lon_inicio').value);
+            const lat2 = parseFloat(document.getElementById('lat_fim').value);
+            const lon2 = parseFloat(document.getElementById('lon_fim').value);
+            if ([lat1, lon1, lat2, lon2].some(isNaN)) return;
+            const bounds = [[lat1, lon1], [lat2, lon2]];
+            L.polyline(bounds, { color: '#dc2626', dashArray: '8,6', weight: 3 }).addTo(previewLayer);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        document.querySelectorAll('.coord-input').forEach(el => {
+            el.addEventListener('input', desenharPreview);
+        });
+
+        carregarSegmentos();
+        habilitarNovaVia(true);
+    });
+</script>
+{% endblock %}

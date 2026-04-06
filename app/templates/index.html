@@ -1,0 +1,190 @@
+{% extends "base_public.html" %}
+
+{% block title %}SISPAV — Plataforma Georreferenciada de Pavimentos{% endblock %}
+
+{% block body %}
+
+<header class="pub-header" id="pub-header">
+    <a href="{{ url_for('auth.index') }}" class="brand">
+        <div class="brand-icon"><i class="fas fa-road"></i></div>
+        <span class="brand-name">SISPAV</span>
+    </a>
+    <nav class="pub-nav">
+        <a href="#sobre">Sobre</a>
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-accent btn-sm">Entrar</a>
+    </nav>
+</header>
+
+{# ── Hero ── #}
+<section class="hero-section" id="home">
+    <div class="hero-bg"></div>
+
+    <span class="hero-badge">
+        <i class="fas fa-map-pin"></i>
+        Pesquisa UnB &mdash; Grupo de Pavimentos
+    </span>
+
+    <h1 class="hero-title">
+        Gestão inteligente de<br>
+        <span>pavimentos urbanos</span>
+    </h1>
+
+    <p class="hero-subtitle">
+        Plataforma georreferenciada para avaliação, análise econômica e
+        visualização do estado da malha viária, desenvolvida pelo grupo de
+        pesquisa da Universidade de Brasília.
+    </p>
+
+    <div class="hero-actions">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-accent btn-lg">
+            <i class="fas fa-arrow-right-to-bracket"></i>
+            Acessar o Portal
+        </a>
+        <a href="#sobre" class="btn btn-outline btn-lg"
+           style="border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75);">
+            Saiba mais
+        </a>
+    </div>
+
+    <div class="hero-scroll" onclick="document.getElementById('sobre').scrollIntoView({behavior:'smooth'})">
+        <span>rolar</span>
+        <i class="fas fa-chevron-down"></i>
+    </div>
+</section>
+
+{# ── Sobre ── #}
+<section class="pub-section alt-bg" id="sobre">
+    <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;">
+        <div>
+            <p class="section-label">Sobre o Projeto</p>
+            <h2 class="section-title">Uma ferramenta feita por pesquisadores, para gestores</h2>
+            <p class="section-desc">
+                O SISPAV digitaliza e automatiza o método de Avaliação do Índice de
+                Condição do Pavimento (ICP), substituindo planilhas VBA por uma plataforma
+                web colaborativa, com banco de dados georreferenciado e dashboards interativos.
+            </p>
+            <p class="section-desc" style="margin-top: 16px;">
+                Desenvolvido no contexto da pesquisa em infraestrutura viária urbana da UnB,
+                o sistema permite que equipes de campo registrem avaliações e gestores
+                acompanhem o estado da rede com dados históricos e análise de investimento.
+            </p>
+            <div style="display: flex; gap: 32px; margin-top: 36px;">
+                <div>
+                    <div style="font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; color: var(--color-ink); font-family: var(--font-mono);">ICP</div>
+                    <div style="font-size: 0.75rem; color: var(--color-ink-muted); letter-spacing: 0.04em; text-transform: uppercase;">Método de avaliação</div>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; color: var(--color-ink); font-family: var(--font-mono);">11</div>
+                    <div style="font-size: 0.75rem; color: var(--color-ink-muted); letter-spacing: 0.04em; text-transform: uppercase;">Tipos de defeito</div>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; color: var(--color-ink); font-family: var(--font-mono);">GIS</div>
+                    <div style="font-size: 0.75rem; color: var(--color-ink-muted); letter-spacing: 0.04em; text-transform: uppercase;">Banco georreferenciado</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 16px;">
+            {% set items = [
+                ("fa-map-location-dot", "Segmentos georreferenciados", "Cadastro de vias com geometria LINESTRING em PostGIS"),
+                ("fa-layer-group",      "Avaliação por defeitos",       "11 tipos de defeito com severidade baixa, média e alta"),
+                ("fa-chart-line",       "Cálculo automático do ICP",    "Score de 0 a 100 com medida de restauração recomendada"),
+                ("fa-timeline",         "Histórico temporal",           "Evolução do estado do pavimento por via ao longo dos anos")
+            ] %}
+            {% for icon, title, desc in items %}
+            <div style="display: flex; gap: 14px; align-items: flex-start;">
+                <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background-color: var(--color-accent-dim); display: flex; align-items: center; justify-content: center; color: var(--color-accent); font-size: 14px; flex-shrink: 0;">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <div>
+                    <div style="font-weight: 600; font-size: var(--text-sm); color: var(--color-ink);">{{ title }}</div>
+                    <div style="font-size: var(--text-xs); color: var(--color-ink-muted); margin-top: 2px;">{{ desc }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{# ── Funcionalidades ── #}
+<section class="pub-section" id="funcionalidades" style="background-color: var(--color-surface);">
+    <div style="max-width: 1100px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 48px;">
+            <p class="section-label">Funcionalidades</p>
+            <h2 class="section-title" style="margin: 0 auto;">O que o SISPAV oferece</h2>
+        </div>
+
+        <div class="features-grid">
+            {% set features = [
+                ("fa-chart-bar",         "Dashboard Interativo",       "Visualize KPIs, distribuição de M&R, evolução histórica do ICP e mapa de calor por condição das vias."),
+                ("fa-map-marked-alt",    "Mapa Georreferenciado",      "Selecione segmentos no mapa, consulte histórico de avaliações e registre novas vias diretamente na interface."),
+                ("fa-calculator",        "Análise Econômica",          "Simule o custo de intervenção com base no ICP atual e projete cenários futuros para priorização de orçamento."),
+                ("fa-list-check",        "Formulário de Avaliação",    "Registre os 11 tipos de defeito com percentuais por severidade; o ICP e o M&R são calculados automaticamente."),
+                ("fa-database",          "Banco de Dados Geográfico",  "Dados armazenados em PostgreSQL + PostGIS com hierarquia UF → Município → Bairro → Segmento."),
+                ("fa-shield-halved",     "Controle de Acesso",         "Perfis de pesquisador e administrador com rotas protegidas por decoradores de autenticação.")
+            ] %}
+            {% for icon, title, desc in features %}
+            <div class="feature-card">
+                <div class="feature-icon-wrap">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <h3>{{ title }}</h3>
+                <p>{{ desc }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{# ── CTA ── #}
+<section class="pub-section alt-bg" style="text-align: center;">
+    <div style="max-width: 600px; margin: 0 auto;">
+        <p class="section-label">Acesso</p>
+        <h2 class="section-title">Pronto para começar?</h2>
+        <p class="section-desc" style="margin: 0 auto 32px;">
+            Solicite acesso ao grupo de pesquisa ou faça login com sua conta existente.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt"></i>
+                Fazer Login
+            </a>
+            <a href="{{ url_for('auth.cadastro') }}" class="btn btn-outline btn-lg">
+                Criar Conta
+            </a>
+        </div>
+    </div>
+</section>
+
+{# ── Footer ── #}
+<footer class="pub-footer">
+    <a href="{{ url_for('auth.index') }}" class="brand">
+        <div class="brand-icon" style="width:28px;height:28px;background:var(--color-accent);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--color-ink);font-size:12px;">
+            <i class="fas fa-road"></i>
+        </div>
+        <span class="brand-name">SISPAV</span>
+    </a>
+    <nav class="footer-links">
+        <a href="#sobre">Sobre</a>
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="{{ url_for('auth.login') }}">Login</a>
+    </nav>
+    <p class="copyright">© {{ 2025 }} SISPAV — Universidade de Brasília</p>
+</footer>
+
+<script>
+    const header = document.getElementById('pub-header');
+    window.addEventListener('scroll', () => {
+        header.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            const target = document.querySelector(a.getAttribute('href'));
+            if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+        });
+    });
+</script>
+
+{% endblock %}

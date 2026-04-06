@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SISPAV{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sispav.css') }}">
+
+    <style>
+        /* ── Sidebar colapsável ── */
+        :root {
+            --sidebar-width:       240px;
+            --sidebar-width-collapsed: 60px;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            transition: width 0.22s ease;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-width-collapsed);
+        }
+
+        /* Esconde texto quando colapsado */
+        .sidebar.collapsed .brand-name,
+        .sidebar.collapsed .sidebar-nav span,
+        .sidebar.collapsed .nav-section-label,
+        .sidebar.collapsed .user-meta,
+        .sidebar.collapsed .btn-ghost span {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-brand {
+            justify-content: center;
+            padding: 0;
+        }
+
+        .sidebar.collapsed .sidebar-nav a {
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        .sidebar.collapsed .sidebar-nav a i {
+            margin: 0;
+            width: auto;
+        }
+
+        .sidebar.collapsed .user-pill {
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        .sidebar.collapsed .sidebar-footer .btn-ghost {
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        /* Botão hamburger */
+        .sidebar-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            border-radius: var(--radius-sm);
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: background var(--transition), color var(--transition);
+            flex-shrink: 0;
+        }
+
+        .sidebar-toggle:hover {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+
+        .sidebar-toggle i { font-size: 14px; pointer-events: none; }
+
+        /* Quando colapsado, o toggle fica centralizado na brand area */
+        .sidebar.collapsed .sidebar-toggle { margin: 0 auto; }
+
+        /* Main wrapper acompanha sidebar */
+        .main-wrapper {
+            transition: margin-left 0.22s ease;
+        }
+
+        .sidebar.collapsed ~ .main-wrapper {
+            margin-left: var(--sidebar-width-collapsed);
+        }
+
+        /* Tooltip nos ícones quando colapsado */
+        .sidebar.collapsed .sidebar-nav a {
+            position: relative;
+        }
+
+        .sidebar.collapsed .sidebar-nav a::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: calc(var(--sidebar-width-collapsed) + 8px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--color-ink);
+            color: white;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            z-index: 200;
+        }
+
+        .sidebar.collapsed .sidebar-nav a:hover::after {
+            opacity: 1;
+        }
+    </style>
+
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+{% block body %}
+
+<div class="app-layout">
+
+    {# ── Sidebar ── #}
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <i class="fas fa-road"></i>
+            </div>
+            <span class="brand-name">SISPAV</span>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="Recolher menu" style="margin-left: auto;">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li class="nav-section-label">Principal</li>
+
+            <li>
+                <a href="{{ url_for('main.dashboard_interativo') }}"
+                   data-tooltip="Dashboard"
+                   class="{% if request.endpoint == 'main.dashboard_interativo' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('main.analise_economica') }}"
+                   data-tooltip="Análise Econômica"
+                   class="{% if request.endpoint == 'main.analise_economica' %}active{% endif %}">
+                    <i class="fas fa-calculator"></i>
+                    <span>Análise Econômica</span>
+                </a>
+            </li>
+
+            {% if session.user_role == 2 %}
+            <li class="nav-section-label">Administração</li>
+            <li>
+                <a href="{{ url_for('main.mapa_avaliacao') }}"
+                   data-tooltip="Mapa e Avaliação"
+                   class="{% if request.endpoint in ['main.mapa_avaliacao', 'main.avaliar'] %}active{% endif %}">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>Mapa e Avaliação</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="user-pill">
+                <div class="avatar">
+                    {{ session.user_name[0]|upper if session.user_name else 'U' }}
+                </div>
+                <div class="user-meta">
+                    <div class="user-name">{{ session.user_name or 'Usuário' }}</div>
+                    <div class="user-role">
+                        {% if session.user_role == 2 %}Administrador{% else %}Pesquisador{% endif %}
+                    </div>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}"
+               data-tooltip="Sair"
+               class="btn btn-ghost btn-sm w-full mt-8"
+               style="color: rgba(255,255,255,0.45); justify-content: flex-start; gap: 8px;">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Sair</span>
+            </a>
+        </div>
+    </aside>
+
+    {# ── Área principal ── #}
+    <div class="main-wrapper" id="main-wrapper">
+        <header class="topbar">
+            <h1 class="topbar-title">{% block page_title %}{% endblock %}</h1>
+            <div class="topbar-right">
+                {% block topbar_actions %}{% endblock %}
+            </div>
+        </header>
+
+        <main class="page-body">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas
+                                {% if category == 'success' %}fa-check-circle
+                                {% elif category == 'danger' %}fa-exclamation-circle
+                                {% elif category == 'warning' %}fa-triangle-exclamation
+                                {% else %}fa-info-circle
+                                {% endif %}">
+                            </i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+
+        </main>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}{% endblock %}
+
+<script>
+    /* ── Sidebar toggle com persistência via localStorage ── */
+    (function () {
+        const sidebar  = document.getElementById('sidebar');
+        const btn      = document.getElementById('sidebar-toggle');
+        const STOR_KEY = 'sispav_sidebar_collapsed';
+
+        function setCollapsed(collapsed) {
+            sidebar.classList.toggle('collapsed', collapsed);
+            btn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+            try { localStorage.setItem(STOR_KEY, collapsed ? '1' : '0'); } catch {}
+        }
+
+        /* Restaura estado salvo */
+        try {
+            if (localStorage.getItem(STOR_KEY) === '1') setCollapsed(true);
+        } catch {}
+
+        btn.addEventListener('click', () => {
+            setCollapsed(!sidebar.classList.contains('collapsed'));
+        });
+    })();
+</script>
+
+</body>
+</html>

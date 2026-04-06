@@ -1,0 +1,725 @@
+{% extends "base.html" %}
+
+{% block title %}Análise Econômica — SISPAV{% endblock %}
+{% block page_title %}Análise Econômica{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* ── Formulário ── */
+    .sim-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 140px;
+        gap: 16px;
+        align-items: end;
+        margin-bottom: 16px;
+    }
+
+    /* Tabela de parâmetros do modelo */
+    .params-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 12px;
+    }
+
+    .params-table thead th {
+        background: var(--color-ink);
+        color: var(--color-white);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 7px 12px;
+        text-align: center;
+        border: none;
+    }
+
+    .params-table thead th:first-child { text-align: left; border-radius: 4px 0 0 0; }
+    .params-table thead th:last-child  { border-radius: 0 4px 0 0; }
+
+    .params-table tbody tr:nth-child(even) { background: var(--color-surface); }
+
+    .params-table tbody td {
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--color-border);
+        text-align: center;
+        color: var(--color-ink);
+    }
+
+    .params-table tbody td:first-child { text-align: left; font-weight: 600; }
+
+    .params-table tfoot td {
+        padding: 6px 12px;
+        font-size: 11px;
+        color: var(--color-ink-muted);
+        background: var(--color-surface);
+        border-top: 2px solid var(--color-border);
+    }
+
+    /* ── KPI cards ── */
+    .result-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .rkpi {
+        background: var(--color-white);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 16px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .rkpi-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--color-ink-muted);
+    }
+
+    .rkpi-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: var(--color-ink);
+        font-family: var(--font-mono);
+        line-height: 1.1;
+        word-break: break-all;
+    }
+
+    .rkpi-value.positive { color: var(--color-success); }
+    .rkpi-value.negative { color: var(--color-danger); }
+    .rkpi-value.accent   { color: var(--color-accent); }
+
+    .rkpi-sub {
+        font-size: 11px;
+        color: var(--color-ink-muted);
+    }
+
+    /* Barra de orçamento */
+    .budget-bar-wrap {
+        background: var(--color-surface);
+        border-radius: 100px;
+        height: 8px;
+        overflow: hidden;
+        margin-top: 4px;
+    }
+
+    .budget-bar-fill {
+        height: 100%;
+        border-radius: 100px;
+        background: linear-gradient(90deg, var(--color-action), #60a5fa);
+        transition: width 0.6s ease;
+    }
+
+    .budget-bar-fill.over { background: linear-gradient(90deg, var(--color-danger), #f87171); }
+
+    /* ── Comparativo ICP ── */
+    .icp-compare {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-border);
+        margin-bottom: 20px;
+    }
+
+    .icp-box {
+        flex: 1;
+        text-align: center;
+    }
+
+    .icp-box .lbl {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-ink-muted);
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .icp-box .val {
+        font-size: 2.8rem;
+        font-weight: 800;
+        font-family: var(--font-mono);
+        letter-spacing: -0.04em;
+        line-height: 1;
+    }
+
+    .icp-arrow { font-size: 1.2rem; color: var(--color-ink-faint); flex-shrink: 0; }
+
+    .icp-delta { text-align: center; flex-shrink: 0; min-width: 90px; }
+
+    .icp-delta .delta-val {
+        font-size: 1.5rem;
+        font-weight: 800;
+        font-family: var(--font-mono);
+    }
+
+    .icp-delta .delta-lbl {
+        font-size: 10px;
+        color: var(--color-ink-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        display: block;
+        margin-top: 2px;
+    }
+
+    /* ── Distribuição M&R ── */
+    .mer-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .mer-panel {
+        background: var(--color-white);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .mer-panel-header {
+        padding: 10px 16px;
+        background: var(--color-surface);
+        border-bottom: 1px solid var(--color-border);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-ink-muted);
+    }
+
+    .mer-row {
+        display: flex;
+        align-items: center;
+        padding: 9px 16px;
+        gap: 12px;
+        border-bottom: 1px solid var(--color-border);
+        font-size: var(--text-sm);
+    }
+
+    .mer-row:last-child { border-bottom: none; }
+
+    .mer-tag {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        min-width: 34px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .mer-tag.NF { background: var(--color-success-bg); color: var(--color-success); }
+    .mer-tag.MP { background: var(--color-info-bg);    color: var(--color-info); }
+    .mer-tag.MC { background: var(--color-warning-bg); color: var(--color-warning); }
+    .mer-tag.RF { background: #fff7ed; color: #ea580c; }
+    .mer-tag.RC { background: var(--color-danger-bg);  color: var(--color-danger); }
+
+    .mer-bar-bg {
+        flex: 1;
+        background: var(--color-surface);
+        border-radius: 100px;
+        height: 6px;
+        overflow: hidden;
+    }
+
+    .mer-bar-fill { height: 100%; border-radius: 100px; }
+    .mer-bar-fill.NF { background: var(--color-success); }
+    .mer-bar-fill.MP { background: var(--color-info); }
+    .mer-bar-fill.MC { background: var(--color-warning); }
+    .mer-bar-fill.RF { background: #ea580c; }
+    .mer-bar-fill.RC { background: var(--color-danger); }
+
+    .mer-count {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--color-ink-muted);
+        min-width: 24px;
+        text-align: right;
+    }
+
+    /* ── Tabela de vias ── */
+    .via-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .via-table thead th {
+        background: var(--color-ink);
+        color: var(--color-white);
+        padding: 9px 10px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        border: none;
+    }
+
+    .via-table thead th.center { text-align: center; }
+
+    .via-table tbody tr:nth-child(even) { background: var(--color-surface); }
+    .via-table tbody tr.atendida:hover  { background: #eef8f0; }
+    .via-table tbody tr.nao-atendida    { opacity: 0.6; }
+    .via-table tbody tr.nao-atendida:hover { opacity: 1; background: #fff5f5; }
+
+    .via-table tbody td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--color-border);
+        color: var(--color-ink);
+        vertical-align: middle;
+    }
+
+    .via-table tbody td.center { text-align: center; }
+    .via-table tbody td.mono   { font-family: var(--font-mono); }
+
+    .badge-ok   { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-skip { background: var(--color-danger-bg);  color: var(--color-danger); }
+    .badge-nf   { background: var(--color-surface); color: var(--color-ink-muted); border: 1px solid var(--color-border); }
+
+    .icp-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 22px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    /* Tabs */
+    .result-tabs {
+        display: flex;
+        gap: 2px;
+        margin-bottom: 14px;
+        border-bottom: 2px solid var(--color-border);
+    }
+
+    .result-tab {
+        padding: 8px 16px;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--color-ink-muted);
+        border: none;
+        background: none;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all var(--transition);
+    }
+
+    .result-tab.active { color: var(--color-action); border-bottom-color: var(--color-action); }
+    .result-tab:hover:not(.active) { color: var(--color-ink); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    @media (max-width: 900px) {
+        .sim-form-grid { grid-template-columns: 1fr; }
+        .mer-grid       { grid-template-columns: 1fr; }
+        .icp-compare    { flex-wrap: wrap; }
+    }
+</style>
+{% endblock %}
+
+{% block topbar_actions %}
+<span style="font-size: var(--text-sm); color: var(--color-ink-muted);">
+    Priorização de investimentos por IP · Modelo Zanchetta / Ramos (2023)
+</span>
+{% endblock %}
+
+{% block content %}
+
+{# ── Formulário de configuração ── #}
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-header">
+        <span class="card-title">
+            <i class="fas fa-sliders" style="color: var(--color-accent); margin-right: 7px;"></i>
+            Parâmetros da Simulação
+        </span>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.analise_economica') }}">
+
+            <div class="sim-form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="municipio_id">
+                        Município <span class="required">*</span>
+                    </label>
+                    <select class="form-control" id="municipio_id" name="municipio_id" required>
+                        <option value="">Selecione um município...</option>
+                        {% for mun in municipios %}
+                            <option value="{{ mun.id }}"
+                                {{ 'selected' if form_data.mun_id == mun.id|string }}>
+                                {{ mun.nome }} — {{ mun.uf.sigla }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="orcamento">
+                        Orçamento disponível (R$) <span class="required">*</span>
+                    </label>
+                    <input class="form-control" type="text" id="orcamento" name="orcamento"
+                           placeholder="1.500.000,00"
+                           value="{{ form_data.orcamento if form_data.orcamento else '' }}"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="anos_projecao">Projeção (anos)</label>
+                    <input class="form-control" type="number" id="anos_projecao"
+                           name="anos_projecao" min="0" max="20"
+                           value="{{ form_data.anos if form_data.anos is not none else '0' }}">
+                    <span class="form-hint">0 = situação atual</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-calculator"></i>
+                Simular
+            </button>
+
+        </form>
+
+        {# ── Tabela de parâmetros do modelo ── #}
+        <div style="margin-top: 20px;">
+            <p style="font-size: 11px; font-weight: 700; text-transform: uppercase;
+                      letter-spacing: 0.07em; color: var(--color-ink-muted); margin-bottom: 8px;">
+                Parâmetros fixos do modelo
+            </p>
+            <table class="params-table">
+                <thead>
+                    <tr>
+                        <th>M&R</th>
+                        <th>Descrição</th>
+                        <th>Custo (R$/m²)</th>
+                        <th>Área aplicada</th>
+                        <th>ICP após intervenção</th>
+                        <th>Fator MF (IP)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mer-tag NF">NF</span></td>
+                        <td>Nada a fazer</td>
+                        <td>R$ 0,00</td>
+                        <td>0%</td>
+                        <td>Mantém atual</td>
+                        <td>0,1</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mer-tag MP">MP</span></td>
+                        <td>Manutenção Preventiva (lama asfáltica)</td>
+                        <td>R$ 15,11</td>
+                        <td>100%</td>
+                        <td>91</td>
+                        <td>0,2</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mer-tag MC">MC</span></td>
+                        <td>Manutenção Corretiva (fresagem + CBUQ localizado)</td>
+                        <td>R$ 228,44</td>
+                        <td>5%</td>
+                        <td>87</td>
+                        <td>0,3</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mer-tag RF">RF</span></td>
+                        <td>Reforço Estrutural (fresagem + CBUQ toda seção)</td>
+                        <td>R$ 167,02</td>
+                        <td>100%</td>
+                        <td>78</td>
+                        <td>0,4</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mer-tag RC">RC</span></td>
+                        <td>Reconstrução completa</td>
+                        <td>R$ 255,98</td>
+                        <td>100%</td>
+                        <td>68</td>
+                        <td>0,5</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="6">
+                            <b>IP = (1 / ICP) × TF × FC × MF</b> &nbsp;·&nbsp;
+                            Largura padrão: 7 m &nbsp;·&nbsp;
+                            Deterioração: ICP ≥ 85 → −3 pts/ano &nbsp;·&nbsp; ICP &lt; 85 → −4 pts/ano &nbsp;·&nbsp;
+                            TF baseado no VDM cadastrado (&lt;500=20 · 500-999=30 · 1000-1999=40 · ≥2000=50) &nbsp;·&nbsp;
+                            FC: Arterial=1,2 · Coletora=1,1 · Local=1,0 &nbsp;·&nbsp;
+                            Base TPU DER/SP Set/2022
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+{# ── Resultados ── #}
+{% if resultados %}
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">
+            <i class="fas fa-chart-line" style="color: var(--color-accent); margin-right: 7px;"></i>
+            Resultado — {{ resultados.municipio_nome }}
+            <span style="font-weight:400; color: var(--color-ink-muted); font-size: var(--text-sm);">
+                · {% if resultados.anos_projecao > 0 %}
+                    Projeção de {{ resultados.anos_projecao }} ano{{ 's' if resultados.anos_projecao > 1 }}
+                  {% else %}Situação atual{% endif %}
+            </span>
+        </span>
+    </div>
+    <div class="card-body">
+
+        {# ── KPIs ── #}
+        <div class="result-kpis">
+
+            <div class="rkpi">
+                <span class="rkpi-label">Orçamento disponível</span>
+                <div class="rkpi-value accent">{{ resultados.orcamento_disponivel | contabel }}</div>
+            </div>
+
+            <div class="rkpi">
+                <span class="rkpi-label">Orçamento utilizado</span>
+                {% set pct = (resultados.orcamento_gasto / resultados.orcamento_disponivel * 100) if resultados.orcamento_disponivel > 0 else 0 %}
+                <div class="rkpi-value {% if pct > 100 %}negative{% else %}positive{% endif %}">
+                    {{ resultados.orcamento_gasto | contabel }}
+                </div>
+                <div class="budget-bar-wrap">
+                    <div class="budget-bar-fill {% if pct > 100 %}over{% endif %}"
+                         style="width: {{ [pct, 100] | min }}%"></div>
+                </div>
+                <span class="rkpi-sub">{{ pct | round(1) }}% do orçamento</span>
+            </div>
+
+            <div class="rkpi">
+                <span class="rkpi-label">Custo total necessário</span>
+                <div class="rkpi-value {% if resultados.custo_total_necessario > resultados.orcamento_disponivel %}negative{% else %}positive{% endif %}">
+                    {{ resultados.custo_total_necessario | contabel }}
+                </div>
+                <span class="rkpi-sub">
+                    {% set deficit = resultados.custo_total_necessario - resultados.orcamento_disponivel %}
+                    {% if deficit > 0 %}Déficit: {{ deficit | contabel }}
+                    {% else %}Dentro do orçamento{% endif %}
+                </span>
+            </div>
+
+            <div class="rkpi">
+                <span class="rkpi-label">Vias atendidas</span>
+                <div class="rkpi-value">{{ resultados.vias_atendidas }}</div>
+                <span class="rkpi-sub">de {{ resultados.total_vias }} segmentos</span>
+            </div>
+
+            <div class="rkpi">
+                <span class="rkpi-label">Com avaliação</span>
+                <div class="rkpi-value">{{ resultados.vias_com_avaliacao }}</div>
+                <span class="rkpi-sub">de {{ resultados.total_vias }} segmentos</span>
+            </div>
+
+        </div>
+
+        {# ── Comparativo ICP ── #}
+        {% set ganho = resultados.ganho_icp %}
+        <div class="icp-compare">
+            <div class="icp-box">
+                <span class="lbl">ICP Médio {{ '(projetado)' if resultados.anos_projecao > 0 else '(atual)' }}</span>
+                <div class="val" style="color: {{ '#dc2626' if resultados.icp_medio_antes < 60 else ('#d97706' if resultados.icp_medio_antes < 75 else '#16a34a') }}">
+                    {{ resultados.icp_medio_antes }}
+                </div>
+            </div>
+            <div class="icp-arrow"><i class="fas fa-arrow-right"></i></div>
+            <div class="icp-delta">
+                <div class="delta-val" style="color: {{ 'var(--color-success)' if ganho >= 0 else 'var(--color-danger)' }}">
+                    {{ '+' if ganho >= 0 }}{{ ganho }} pts
+                </div>
+                <span class="delta-lbl">variação</span>
+            </div>
+            <div class="icp-arrow"><i class="fas fa-arrow-right"></i></div>
+            <div class="icp-box">
+                <span class="lbl">ICP Médio (após intervenção)</span>
+                <div class="val" style="color: {{ '#dc2626' if resultados.icp_medio_depois < 60 else ('#d97706' if resultados.icp_medio_depois < 75 else '#16a34a') }}">
+                    {{ resultados.icp_medio_depois }}
+                </div>
+            </div>
+        </div>
+
+        {# ── Distribuição M&R ── #}
+        {% set total = resultados.total_vias %}
+        <div class="mer-grid">
+            <div class="mer-panel">
+                <div class="mer-panel-header">
+                    M&R — {{ 'Projetado (sem intervenção)' if resultados.anos_projecao > 0 else 'Atual' }}
+                </div>
+                {% for mer_key in ['NF', 'MP', 'MC', 'RF', 'RC'] %}
+                    {% set cnt = resultados.dist_mer_antes.get(mer_key, 0) %}
+                    {% set pct_bar = (cnt / total * 100) if total > 0 else 0 %}
+                    <div class="mer-row">
+                        <span class="mer-tag {{ mer_key }}">{{ mer_key }}</span>
+                        <div class="mer-bar-bg">
+                            <div class="mer-bar-fill {{ mer_key }}" style="width: {{ pct_bar }}%"></div>
+                        </div>
+                        <span class="mer-count">{{ cnt }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="mer-panel">
+                <div class="mer-panel-header">
+                    M&R — Após alocação do orçamento
+                </div>
+                {% for mer_key in ['NF', 'MP', 'MC', 'RF', 'RC'] %}
+                    {% set cnt = resultados.dist_mer_depois.get(mer_key, 0) %}
+                    {% set pct_bar = (cnt / total * 100) if total > 0 else 0 %}
+                    <div class="mer-row">
+                        <span class="mer-tag {{ mer_key }}">{{ mer_key }}</span>
+                        <div class="mer-bar-bg">
+                            <div class="mer-bar-fill {{ mer_key }}" style="width: {{ pct_bar }}%"></div>
+                        </div>
+                        <span class="mer-count">{{ cnt }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# ── Tabela ── #}
+        <div class="result-tabs">
+            <button class="result-tab active" onclick="showTab('tab-todas', this)">
+                Todas as vias ({{ resultados.tabela_vias | length }})
+            </button>
+            <button class="result-tab" onclick="showTab('tab-atendidas', this)">
+                Atendidas pelo orçamento
+            </button>
+            <button class="result-tab" onclick="showTab('tab-fila', this)">
+                Fora do orçamento
+            </button>
+        </div>
+
+        <div class="tab-panel active" id="tab-todas">
+            <div style="overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+                {{ tabela_vias(resultados.tabela_vias) }}
+            </div>
+        </div>
+        <div class="tab-panel" id="tab-atendidas">
+            <div style="overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+                {{ tabela_vias(resultados.tabela_vias | selectattr('atendida', 'equalto', true) | list) }}
+            </div>
+        </div>
+        <div class="tab-panel" id="tab-fila">
+            <div style="overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md);">
+                {{ tabela_vias(resultados.tabela_vias | selectattr('atendida', 'equalto', false) | list) }}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% macro tabela_vias(vias) %}
+{% if vias %}
+<table class="via-table">
+    <thead>
+        <tr>
+            <th style="width:28px">#</th>
+            <th>Via</th>
+            <th>Bairro</th>
+            <th>Classe</th>
+            <th class="center">Comp.(m)</th>
+            <th class="center">Área(m²)</th>
+            <th class="center">ICP proj.</th>
+            <th class="center">M&R</th>
+            <th class="center">IP</th>
+            <th class="center">Custo</th>
+            <th class="center">ICP pós</th>
+            <th class="center">Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in vias %}
+        <tr class="{{ 'atendida' if v.atendida else 'nao-atendida' }}">
+            <td class="mono" style="color:var(--color-ink-faint);font-size:10px">{{ loop.index }}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">{{ v.nome }}</td>
+            <td style="color:var(--color-ink-muted)">{{ v.bairro }}</td>
+            <td><span class="badge {% if v.classe == 'Arterial' %}badge-danger{% elif v.classe == 'Coletora' %}badge-warning{% else %}badge-neutral{% endif %}">{{ v.classe }}</span></td>
+            <td class="center mono">{{ v.comp_m }}</td>
+            <td class="center mono">{{ v.area_m2 }}</td>
+            <td class="center">
+                {% if v.icp_projetado is not none %}
+                    {% set cor = '#16a34a' if v.icp_projetado >= 80 else ('#d97706' if v.icp_projetado >= 60 else '#dc2626') %}
+                    <span class="icp-chip" style="background:{{ cor }}22;color:{{ cor }}">{{ v.icp_projetado }}</span>
+                {% else %}<span style="color:var(--color-ink-faint)">—</span>{% endif %}
+            </td>
+            <td class="center"><span class="mer-tag {{ v.mer }}">{{ v.mer }}</span></td>
+            <td class="center mono" style="font-size:11px;color:var(--color-ink-muted)">{{ "%.4f"|format(v.ip) }}</td>
+            <td class="center mono" style="font-size:11px">
+                {% if v.mer == 'NF' %}<span style="color:var(--color-ink-faint)">—</span>
+                {% else %}{{ v.custo_intervencao | contabel }}{% endif %}
+            </td>
+            <td class="center">
+                {% if v.icp_final is not none %}
+                    {% set cor2 = '#16a34a' if v.icp_final >= 80 else ('#d97706' if v.icp_final >= 60 else '#dc2626') %}
+                    <span class="icp-chip" style="background:{{ cor2 }}22;color:{{ cor2 }}">{{ v.icp_final }}</span>
+                {% else %}<span style="color:var(--color-ink-faint)">—</span>{% endif %}
+            </td>
+            <td class="center">
+                {% if v.mer == 'NF' %}
+                    <span class="badge badge-nf" style="font-size:10px">NF</span>
+                {% elif v.atendida %}
+                    <span class="badge badge-ok" style="font-size:10px"><i class="fas fa-check"></i> Atendida</span>
+                {% else %}
+                    <span class="badge badge-skip" style="font-size:10px"><i class="fas fa-clock"></i> Fila</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div style="padding:40px;text-align:center;color:var(--color-ink-faint)">
+    <i class="fas fa-inbox" style="font-size:2rem;opacity:.4;display:block;margin-bottom:10px"></i>
+    Nenhuma via nesta categoria
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block scripts %}
+<script>
+    document.getElementById('orcamento').addEventListener('input', function(e) {
+        let val = e.target.value.replace(/\D/g,'');
+        if (!val) { e.target.value=''; return; }
+        val = (parseInt(val,10)/100).toFixed(2);
+        val = val.replace('.',',');
+        val = val.replace(/(\d)(?=(\d{3})+(?!\d))/g,'$1.');
+        e.target.value = val;
+    });
+
+    function showTab(id, btn) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.result-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        btn.classList.add('active');
+    }
+</script>
+{% endblock %}

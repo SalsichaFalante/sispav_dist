@@ -1,0 +1,120 @@
+{% extends "base_public.html" %}
+
+{% block title %}Login — SISPAV{% endblock %}
+
+{% block body %}
+
+<div class="auth-layout">
+
+    {# ── Painel esquerdo ── #}
+    <div class="auth-panel-left">
+        <div class="auth-left-brand">
+            <div class="brand-icon"><i class="fas fa-road"></i></div>
+            <span class="brand-name">SISPAV</span>
+        </div>
+
+        <div class="auth-left-content">
+            <h2>Bem-vindo de<br>volta ao <span>SISPAV</span></h2>
+            <p>
+                Acesse sua conta para visualizar dashboards,
+                consultar avaliações e gerenciar a malha viária
+                do seu município.
+            </p>
+        </div>
+
+        <div class="auth-stats">
+            <div class="auth-stat">
+                <span class="stat-value">ICP</span>
+                <span class="stat-label">Índice avaliado</span>
+            </div>
+            <div class="auth-stat">
+                <span class="stat-value">11</span>
+                <span class="stat-label">Tipos de defeito</span>
+            </div>
+            <div class="auth-stat">
+                <span class="stat-value">GIS</span>
+                <span class="stat-label">Georreferenciado</span>
+            </div>
+        </div>
+    </div>
+
+    {# ── Painel direito: formulário ── #}
+    <div class="auth-panel-right">
+        <div class="auth-form-wrap">
+
+            <h1 class="auth-form-title">Entrar</h1>
+            <p class="auth-form-subtitle">Digite suas credenciais para acessar o portal.</p>
+
+            {# Flash messages #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas
+                                {% if category == 'success' %}fa-check-circle
+                                {% elif category == 'danger' %}fa-exclamation-circle
+                                {% else %}fa-info-circle{% endif %}">
+                            </i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('auth.login') }}" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+
+                <div class="form-group">
+                    <label class="form-label" for="email">E-mail</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input
+                            class="form-control"
+                            type="email"
+                            id="email"
+                            name="email"
+                            required
+                            autocomplete="email"
+                            placeholder="seu@email.com">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Senha</label>
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input
+                            class="form-control"
+                            type="password"
+                            id="password"
+                            name="password"
+                            required
+                            autocomplete="current-password"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top: 4px;">
+                    <i class="fas fa-arrow-right-to-bracket"></i>
+                    Entrar
+                </button>
+
+            </form>
+
+            <p class="auth-footer-link">
+                Não tem uma conta?
+                <a href="{{ url_for('auth.cadastro') }}">Cadastre-se</a>
+            </p>
+
+            <p class="auth-footer-link" style="margin-top: 12px;">
+                <a href="{{ url_for('auth.index') }}" style="color: var(--color-ink-muted); font-weight: 400;">
+                    <i class="fas fa-arrow-left" style="font-size: 11px;"></i>
+                    Voltar ao início
+                </a>
+            </p>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

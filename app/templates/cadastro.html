@@ -1,0 +1,175 @@
+{% extends "base_public.html" %}
+
+{% block title %}Criar Conta — SISPAV{% endblock %}
+
+{% block body %}
+
+<div class="auth-layout">
+
+    {# ── Painel esquerdo ── #}
+    <div class="auth-panel-left">
+        <div class="auth-left-brand">
+            <div class="brand-icon"><i class="fas fa-road"></i></div>
+            <span class="brand-name">SISPAV</span>
+        </div>
+
+        <div class="auth-left-content">
+            <h2>Junte-se à<br>pesquisa de <span>pavimentos</span></h2>
+            <p>
+                Crie sua conta para colaborar com o grupo de pesquisa,
+                registrar avaliações de campo e acompanhar o estado
+                da infraestrutura viária.
+            </p>
+        </div>
+
+        <div class="auth-stats">
+            <div class="auth-stat">
+                <span class="stat-value">UnB</span>
+                <span class="stat-label">Universidade</span>
+            </div>
+            <div class="auth-stat">
+                <span class="stat-value">DF</span>
+                <span class="stat-label">Foco atual</span>
+            </div>
+            <div class="auth-stat">
+                <span class="stat-value">GIS</span>
+                <span class="stat-label">Georreferenciado</span>
+            </div>
+        </div>
+    </div>
+
+    {# ── Painel direito: formulário ── #}
+    <div class="auth-panel-right">
+        <div class="auth-form-wrap" style="max-width: 480px;">
+
+            <h1 class="auth-form-title">Criar Conta</h1>
+            <p class="auth-form-subtitle">Preencha os dados abaixo para se cadastrar.</p>
+
+            {# Flash messages #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas
+                                {% if category == 'success' %}fa-check-circle
+                                {% elif category == 'danger' %}fa-exclamation-circle
+                                {% else %}fa-info-circle{% endif %}">
+                            </i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('auth.cadastro') }}" method="POST"
+                  style="display: flex; flex-direction: column; gap: 16px;">
+
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+
+                    <div class="form-group span-full">
+                        <label class="form-label" for="fullName">
+                            Nome Completo <span class="required">*</span>
+                        </label>
+                        <div class="input-wrap">
+                            <i class="fas fa-user input-icon"></i>
+                            <input
+                                class="form-control"
+                                type="text"
+                                id="fullName"
+                                name="fullName"
+                                required
+                                autocomplete="name"
+                                placeholder="Seu nome completo">
+                        </div>
+                    </div>
+
+                    <div class="form-group span-full">
+                        <label class="form-label" for="email">
+                            E-mail <span class="required">*</span>
+                        </label>
+                        <div class="input-wrap">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input
+                                class="form-control"
+                                type="email"
+                                id="email"
+                                name="email"
+                                required
+                                autocomplete="email"
+                                placeholder="seu@email.com">
+                        </div>
+                    </div>
+
+                    <div class="form-group span-full">
+                        <label class="form-label" for="phone">Telefone</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-phone input-icon"></i>
+                            <input
+                                class="form-control"
+                                type="tel"
+                                id="phone"
+                                name="phone"
+                                autocomplete="tel"
+                                placeholder="(61) 9 9999-9999">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">
+                            Senha <span class="required">*</span>
+                        </label>
+                        <div class="input-wrap">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input
+                                class="form-control"
+                                type="password"
+                                id="password"
+                                name="password"
+                                required
+                                autocomplete="new-password"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="confirmPassword">
+                            Confirmar Senha <span class="required">*</span>
+                        </label>
+                        <div class="input-wrap">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input
+                                class="form-control"
+                                type="password"
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                required
+                                autocomplete="new-password"
+                                placeholder="••••••••">
+                        </div>
+                    </div>
+
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 4px;">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline" style="flex: 1;">
+                        Voltar
+                    </a>
+                    <button type="submit" class="btn btn-primary" style="flex: 2;">
+                        <i class="fas fa-user-plus"></i>
+                        Criar Conta
+                    </button>
+                </div>
+
+            </form>
+
+            <p class="auth-footer-link">
+                Já tem uma conta?
+                <a href="{{ url_for('auth.login') }}">Fazer login</a>
+            </p>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
