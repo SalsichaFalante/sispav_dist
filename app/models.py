@@ -4,7 +4,7 @@ Database models usando SQLAlchemy
 
 """
 import os
-from sqlalchemy import create_engine, Column, String, Integer, Date, ForeignKey, Numeric, UniqueConstraint
+from sqlalchemy import create_engine, Column, String, Integer, Date, ForeignKey, Numeric, UniqueConstraint, text
 from flask_login import UserMixin
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from geoalchemy2 import Geometry
@@ -191,4 +191,8 @@ class User(Base, UserMixin):
     role            = Column(Integer, default=1) # 1 - user , 2 - admin
     senha           = Column(String(256), nullable=False)
   
+with db.connect() as conn:
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+    conn.commit()
+
 Base.metadata.create_all(bind=db)
