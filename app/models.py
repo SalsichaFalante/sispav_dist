@@ -3,15 +3,19 @@ Sistema de Gerenciamento de Avaliações de Pavimento
 Database models usando SQLAlchemy
 
 """
-
+import os
 from sqlalchemy import create_engine, Column, String, Integer, Date, ForeignKey, Numeric, UniqueConstraint
 from flask_login import UserMixin
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from geoalchemy2 import Geometry
 
 # Configuração inicial do banco de dados
-DB_URL   = "postgresql://postgres:1234@localhost:5432/sispav"
-db       = create_engine(DB_URL)
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:1234@localhost:5432/sispav')
+
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+db       = create_engine(DATABASE_URL)
 Session  = sessionmaker(bind=db) 
 session  = Session()
 
